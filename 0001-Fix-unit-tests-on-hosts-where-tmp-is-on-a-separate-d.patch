@@ -1,0 +1,79 @@
+From c713ade6a49423a5f4717974560a7bdd8d8b405e Mon Sep 17 00:00:00 2001
+Message-Id: <c713ade6a49423a5f4717974560a7bdd8d8b405e.1564650506.git.maciek.borzecki@gmail.com>
+From: Maciek Borzecki <maciek.borzecki@gmail.com>
+Date: Thu, 1 Aug 2019 11:00:01 +0200
+Subject: [PATCH] Fix unit tests on hosts where /tmp is on a separate device
+
+Hardlinking across different devices cannot be done. Thus the test fails like
+this:
+
+--- FAIL: TestPreload (0.00s)
+    gettext_test.go:103: link testdata/en/messages.mo /tmp/gogettext333580384/en/LC_MESSAGES/messages.mo: invalid cross-device link
+FAIL
+FAIL    github.com/snapcore/go-gettext  0.003s
+ok      github.com/snapcore/go-gettext/pluralforms      0.008s
+
+Signed-off-by: Maciek Borzecki <maciek.borzecki@gmail.com>
+---
+ gettext_test.go | 19 +++++++++++--------
+ 1 file changed, 11 insertions(+), 8 deletions(-)
+
+diff --git a/gettext_test.go b/gettext_test.go
+index c4899041ef4fcf4d63cbc62c5817fd40a4266d25..b117e0741104c0b8d725937404d77ff6173ae412 100644
+--- a/gettext_test.go
++++ b/gettext_test.go
+@@ -2,10 +2,10 @@ package gettext
+ 
+ import (
+ 	"fmt"
+-	"path"
+-	"testing"
+ 	"io/ioutil"
+ 	"os"
++	"path"
++	"testing"
+ )
+ 
+ func TestNullTranslations(t *testing.T) {
+@@ -80,7 +80,6 @@ func TestRealTranslations(t *testing.T) {
+ 	)
+ }
+ 
+-
+ func TestPreload(t *testing.T) {
+ 	dir, err := ioutil.TempDir("", "gogettext")
+ 	if err != nil {
+@@ -95,15 +94,19 @@ func TestPreload(t *testing.T) {
+ 	if err != nil {
+ 		t.Fatal(err)
+ 	}
+-	err = os.Link(
+-		"testdata/en/messages.mo",
++	curDir, err := os.Getwd()
++	if err != nil {
++		t.Fatal(err)
++	}
++	err = os.Symlink(
++		path.Join(curDir, "testdata/en/messages.mo"),
+ 		path.Join(dir, "en", "LC_MESSAGES", "messages.mo"),
+ 	)
+ 	if err != nil {
+ 		t.Fatal(err)
+ 	}
+-	err = os.Link(
+-		"testdata/ja/messages.mo",
++	err = os.Symlink(
++		path.Join(curDir, "testdata/ja/messages.mo"),
+ 		path.Join(dir, "ja", "LC_MESSAGES", "messages.mo"),
+ 	)
+ 	if err != nil {
+@@ -201,4 +204,4 @@ func TestNotMoFile(t *testing.T) {
+ 		"order 2 beers",
+ 	)
+ 
+-}
+\ No newline at end of file
++}
+-- 
+2.22.0
+
